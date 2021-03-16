@@ -16,7 +16,8 @@ class Human36M(Dataset):
         
         # Parameter
         self.joint_name = ('Pelvis', 'R_Hip', 'R_Knee', 'R_Ankle', 'L_Hip', 'L_Knee', 'L_Ankle', 'Torso', 'Neck', 'Head', 'Head_top', 'L_Shoulder', 'L_Elbow', 'L_Wrist', 'R_Shoulder', 'R_Elbow', 'R_Wrist')
-        self.joint_adjacency = ((0, 1), (0, 4))
+        self.joint_adjacency = ((0, 1), (1, 2), (2, 3), (0, 4), (4, 5), (5, 6), (0, 7), (7, 8), (8, 9),
+                                (9, 10), (8, 11), (11, 12), (12, 13) ,(8, 14), (14, 15), (15, 16))
         self.joint_flip_pair = ((1, 4), (2, 5), (3, 6), (14, 11), (15, 12), (16, 13))
         self.eval_joint = (1, 2, 3, 4, 5, 6, 8, 10, 11, 12, 13, 14, 15, 16)
         self.mode = mode
@@ -25,7 +26,7 @@ class Human36M(Dataset):
         self.transform = transforms.ToTensor()
 
     def __len__(self):
-        return 1
+        return 100
         #return len(self.db)
     
     def __getitem__(self, index):
@@ -33,7 +34,7 @@ class Human36M(Dataset):
 
         # load image & augmentation
         img = Img.load_img(data['img_path'])
-        Vis.visualize_boxes(img, [data['bbox']], "./debug1.jpg")
+        Vis.visualize_boxes(img, [data['bbox']], "./outputs/debug1.jpg")
         img, img_trans, rot, do_flip = Img.augmentation(img, data['bbox'], self.mode)
         img = self.transform(img) / 255
         
@@ -41,9 +42,9 @@ class Human36M(Dataset):
         joint_img, joint_cam, img_shape = data['joint_img'], data['joint_cam'], data['img_shape']
         joint_img, joint_cam = Keypoint.preprocess_keypoint(joint_img, joint_cam, img_shape, self.joint_flip_pair, img_trans, rot, do_flip)
 
-        Vis.visualize_image(img, "./debug2.jpg")
-        Vis.visualize_keypoints(img, joint_img, "./debug3.jpg")
-        
+        Vis.visualize_image(img, "./outputs/debug2.jpg")
+        Vis.visualize_skeleton(img, joint_img, self.joint_adjacency, "./outputs/debug3.jpg")
+         
         targets = {
             'joint_img': data['joint_img']
             }
