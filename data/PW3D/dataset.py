@@ -7,11 +7,11 @@ import torchvision.transforms as transforms
 
 from utils import Transform, Box, Img, Keypoint, Vis
 
-class Human36M(Dataset):
+class PW3D(Dataset):
     def __init__(self, mode):
         # Path
         cur_dir = osp.dirname(osp.abspath(__file__))
-        self.annot_path = osp.join(cur_dir, 'annotations')
+        self.annot_path = osp.join(cur_dir, 'data')
         self.image_path = osp.join(cur_dir, 'images')
         
         # Parameter
@@ -23,6 +23,7 @@ class Human36M(Dataset):
         self.mode = mode
         self.transform = transforms.ToTensor()
         
+        # Load db
         self.db = self.load_data()
 
     def __len__(self):
@@ -61,8 +62,7 @@ class Human36M(Dataset):
 
     def get_subject(self):
         if self.mode == 'train':
-            #subject_list = [1, 5, 6, 7, 8]
-            subject_list = [1, 5]
+            subject_list = [1, 5, 6, 7, 8]
         elif self.mode == 'test':
             subject_list = [9, 11]
         else:
@@ -84,17 +84,14 @@ class Human36M(Dataset):
         smpl_params = {}
 
         subject_list = self.get_subject()
-        sampling_ratio = self.get_sampling_ratio()
+        sampling_ratio  =self.get_sampling_ratio()
 
         for subject in subject_list:
             # data load
             with open(osp.join(self.annot_path, 'Human36M_subject' + str(subject) + '_data.json'),'r') as f:
                 annot = json.load(f)
-
-            if len(anns) == 0:
-                for k,v in annot.items(): anns[k] = v
-            else:
-                for k,v in annot.items(): anns[k] += v
+            for k,v in annot.items():
+                    anns[k] = v
 
             # camera load
             with open(osp.join(self.annot_path, 'Human36M_subject' + str(subject) + '_camera.json'),'r') as f:

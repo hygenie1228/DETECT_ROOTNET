@@ -1,10 +1,9 @@
 import random
 from config import cfg
 
-from utils import logger
-
-# Datasets
-from Human36M import Human36M
+# dataset import
+for dataset in (cfg.trainset + cfg.testset):
+    exec('from %s import %s'%(dataset, dataset))
 
 class DataManager:
     def __init__(self, mode='train'):
@@ -15,11 +14,9 @@ class DataManager:
         else:
             assert 0, "Invalid dataset mode"
 
-        # load datasets
-        logger.info("Load datasets...")
         self.dbs = []
-        for i in range(len(db_list)):
-            self.dbs.append(eval(db_list[i])(mode))
+        for dataset in db_list:
+            self.dbs.append(eval(dataset)(mode))
         self.db_num = len(self.dbs)
 
     def __len__(self):

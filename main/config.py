@@ -12,7 +12,7 @@ class Config:
     
     # Train parameter
     batch_size = 48
-    num_worker = 4
+    num_worker = 16
     shuffle = False
 
     end_epoch = 10
@@ -24,9 +24,10 @@ class Config:
     body_3d_size = 2
     
 
-    def set_args(self, gpu):
-        self.gpu = gpu
-        os.environ["CUDA_VISIBLE_DEVICES"] = str(self.gpu)
+    def set_args(self, gpus):
+        gpus = str(gpus)
+        self.num_gpus = len(gpus.split(','))
+        os.environ["CUDA_VISIBLE_DEVICES"] = gpus
 
 cfg = Config()
 sys.path.insert(0, osp.join(cfg.root_dir, 'common'))

@@ -1,8 +1,10 @@
 import torch
 from torch.utils.data import DataLoader
-import json
+from torch.nn.parallel.data_parallel import DataParallel
 
 from dataset import DataManager
+from nets import Model
+from utils import logger
 from config import cfg
 
 class Trainer:
@@ -15,22 +17,27 @@ class Trainer:
 
     def set_trainer(self):
         self._build_dataloader()
+        self._build_model()
 
     def _build_dataloader(self):
+        logger.info("Load datasets...")
         dataset = DataManager(mode='train')
         
         self.dataloader = DataLoader(
             dataset,
-            batch_size = cfg.batch_size,
+            batch_size = cfg.num_gpus * cfg.batch_size,
             num_workers = cfg.num_worker,
-            shuffle = cfg.shuffle
+            shuffle = cfg.shuffle,
+            drop_last = True
         )
 
     def _build_model(self):
-        self.model = MaskRCNN()
-        self.model.cuda()
+        logger.info("Build model...")
+
+        self.model = Model()
+        self.model = DataParallel(self.model).cuda()
         self.model.train()
-        print(self.model)       
+        print(self.model)
 
     def _set_optimizer(self):
         params = []
