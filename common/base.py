@@ -28,7 +28,8 @@ class Trainer:
             batch_size = cfg.num_gpus * cfg.batch_size,
             num_workers = cfg.num_worker,
             shuffle = cfg.shuffle,
-            drop_last = True
+            drop_last = True,
+            collate_fn = dataset.collate_fn
         )
 
     def _build_model(self):

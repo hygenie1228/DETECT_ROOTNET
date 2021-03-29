@@ -26,7 +26,8 @@ def main():
     # train model
     for epoch in range(trainer.start_epoch, cfg.end_epoch):
         for i, (inputs, targets) in enumerate(trainer.dataloader):   
-            print(inputs.shape)
-
+            trainer.model(inputs, targets)
+            print("!")
+            
 if __name__ == "__main__":
     main()

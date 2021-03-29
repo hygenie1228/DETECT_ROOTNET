@@ -1,4 +1,4 @@
-from .func import Img, Box, Keypoint
+from .func import Img, Box, Keypoint, Human
 from .transform import Transform
 from .vis import Vis
 from .logger import logger

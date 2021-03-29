@@ -5,7 +5,8 @@ import numpy as np
 from torch.utils.data.dataset import Dataset
 import torchvision.transforms as transforms
 
-from utils import Transform, Box, Img, Keypoint, Vis
+from config import cfg
+from utils import Transform, Img, Box, Keypoint, Vis
 
 class Human36M(Dataset):
     def __init__(self, mode):
@@ -14,20 +15,28 @@ class Human36M(Dataset):
         self.annot_path = osp.join(cur_dir, 'annotations')
         self.image_path = osp.join(cur_dir, 'images')
         
-        # Parameter
-        self.joint_name = ('Pelvis', 'R_Hip', 'R_Knee', 'R_Ankle', 'L_Hip', 'L_Knee', 'L_Ankle', 'Torso', 'Neck', 'Head', 'Head_top', 'L_Shoulder', 'L_Elbow', 'L_Wrist', 'R_Shoulder', 'R_Elbow', 'R_Wrist')
-        self.joint_adjacency = ((0, 1), (1, 2), (2, 3), (0, 4), (4, 5), (5, 6), (0, 7), (7, 8), (8, 9),
-                                (9, 10), (8, 11), (11, 12), (12, 13) ,(8, 14), (14, 15), (15, 16))
-        self.joint_flip_pair = ((1, 4), (2, 5), (3, 6), (14, 11), (15, 12), (16, 13))
+        # Human parameter
+        self.joint_num = 17
+        self.joints_name = ('Pelvis', 'R_Hip', 'R_Knee', 'R_Ankle', 'L_Hip', 
+                            'L_Knee', 'L_Ankle', 'Torso', 'Neck', 'Head', 
+                            'Head_top', 'L_Shoulder', 'L_Elbow', 'L_Wrist', 'R_Shoulder', 
+                            'R_Elbow', 'R_Wrist')
+        self.skeleton = ((0,1), (1,2), (2,3), (0,4), (4,5), (5,6), (0,7), (7,8), (8,9),
+                        (9,10), (8,11), (11,12), (12,13) ,(8,14), (14,15), (15,16))
+        self.flip_pairs = ((1, 4), (2, 5), (3, 6), (14, 11), (15, 12), (16, 13))
         self.eval_joint = (1, 2, 3, 4, 5, 6, 8, 10, 11, 12, 13, 14, 15, 16)
+
         self.mode = mode
         self.transform = transforms.ToTensor()
         
+        # Load db
         self.db = self.load_data()
 
     def __len__(self):
-        return 100
-        #return len(self.db)
+        if cfg.for_debug:
+            return 100
+        else:
+            return len(self.db)
     
     def __getitem__(self, index):
         data = copy.deepcopy(self.db[index])
@@ -39,21 +48,23 @@ class Human36M(Dataset):
         img = self.transform(img) / 255
         
         if self.mode == 'train':
-            # modify joint coordinates
-            joint_img, joint_cam, img_shape = data['joint_img'], data['joint_cam'], data['img_shape']
-            joint_img, joint_cam = Keypoint.preprocess_keypoint(joint_img, joint_cam, img_shape, self.joint_flip_pair, img_trans, rot, do_flip)
+            joint_img, joint_cam, joint_vis = data['joint_img'], data['joint_cam'], data['joint_vis']
+            img_shape = data['img_shape']
             cam_param = data['cam_param']
+
+            # modify joint coordinates
+            joint_img, joint_cam = Keypoint.preprocess_keypoint(joint_img, joint_cam, img_shape, self.flip_pairs, img_trans, rot, do_flip)            
         else:
-            joint_img = None
-            joint_cam = None
+            joint_img, joint_cam, joint_vis = None, None, None
             cam_param = None
 
-        Vis.visualize_image(img, "./outputs/debug2.jpg")
-        Vis.visualize_skeleton(img, joint_img, self.joint_adjacency, "./outputs/debug3.jpg")
+        Vis.visualize_keypoints(img, joint_img, joint_vis, "./outputs/debug2.jpg")
+        Vis.visualize_skeleton(img, joint_img, joint_vis, self.skeleton, "./outputs/debug3.jpg")
 
         targets = {
             'joint_img' : joint_img,
             'joint_cam' : joint_cam,
+            'joint_vis' : joint_vis,
             'cam_param' : cam_param
             }
 
@@ -61,8 +72,10 @@ class Human36M(Dataset):
 
     def get_subject(self):
         if self.mode == 'train':
-            #subject_list = [1, 5, 6, 7, 8]
-            subject_list = [1, 5]
+            if cfg.for_debug:
+                subject_list = [1, 5]
+            else:
+                subject_list = [1, 5, 6, 7, 8]
         elif self.mode == 'test':
             subject_list = [9, 11]
         else:
@@ -81,7 +94,6 @@ class Human36M(Dataset):
         anns = {}
         cameras = {}
         joints = {}
-        smpl_params = {}
 
         subject_list = self.get_subject()
         sampling_ratio = self.get_sampling_ratio()
@@ -90,7 +102,6 @@ class Human36M(Dataset):
             # data load
             with open(osp.join(self.annot_path, 'Human36M_subject' + str(subject) + '_data.json'),'r') as f:
                 annot = json.load(f)
-
             if len(anns) == 0:
                 for k,v in annot.items(): anns[k] = v
             else:
@@ -131,10 +142,16 @@ class Human36M(Dataset):
             R,t,f,c = np.array(cam_param['R']), np.array(cam_param['t']), np.array(cam_param['f']), np.array(cam_param['c'])
             cam_param = {'R': R, 't': t, 'f': f, 'c': c}
 
-            # project world coordinate to cam, image coordinate space
+            # get joint_cam, joint_img
             joint_world = np.array(joints[str(subject)][str(action_idx)][str(subaction_idx)][str(frame_idx)])
             joint_cam = Transform.world2cam(joint_world, R, t)
             joint_img = Transform.cam2pixel(joint_cam, f, c)
+            joint_vis = np.ones((self.joint_num,))
+
+            # to standard db
+            joint_cam = Keypoint.to_other_db(joint_cam, self.joints_name)
+            joint_img = Keypoint.to_other_db(joint_img, self.joints_name)
+            joint_vis = Keypoint.to_other_db(joint_vis, self.joints_name)
 
             # pre-process box
             bbox = Box.preprocess_box(np.array(ann['bbox']), img_shape)
@@ -145,7 +162,10 @@ class Human36M(Dataset):
                 'bbox' : bbox,
                 'joint_img' : joint_img,
                 'joint_cam' : joint_cam,
+                'joint_vis' : joint_vis,
                 'cam_param' : cam_param
             })
 
+        # parameter to standard db
+        self.joints_name, self.skeleton, self.flip_pairs, self.eval_joint = Keypoint.parameter_to_other_db(self.joints_name, self.skeleton, self.flip_pairs, self.eval_joint)
         return db
